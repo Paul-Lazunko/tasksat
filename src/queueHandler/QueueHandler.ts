@@ -43,12 +43,19 @@ export class QueueHandler {
 
   public static deleteInstance(name: string) {
     if ( QueueHandler.instances.has(name) ) {
+      QueueHandler.instances.get(name).stop();
       QueueHandler.instances.delete(name);
     }
   }
 
   public start() {
     this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME);
+  }
+
+  public stop() {
+    this.eventEmitter.removeAllListeners(QUEUE_HANDLER_PROCESS_EVENT_NAME);
+    this.eventEmitter.removeAllListeners(QUEUE_HANDLER_STORE_EVENT_NAME);
+    this.store.delete(this.name);
   }
 
   public enqueue(job: IJob) {
