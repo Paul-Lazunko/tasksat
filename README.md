@@ -1,8 +1,8 @@
 #Tasksat
 
-* doesn't depend on outer services like Redis
-* uses separated queue for each task
-* continue task execution after restarting the application
+* doesn't depend on outer services like Redis etc
+* uses separated queue for each task (each different job type)
+* will continue task execution after restarting the main application (jobs are stored and previously enqueued jobs will be handled after restart)
 
 ```ecmascript 6
 
@@ -11,14 +11,14 @@ const { TaskManager } = require("tasksat");
 
 const storagePath = `./data/queues.json`;
 
-// get TaskManager Instance:
+// Create TaskManager instance (it is Singleton)
 
 const taskManager = TaskManager.getInstance({
-  isSilent: true, // set to true to view logs
-  storage: path.resolve(__dirname, storagePath) // specify storage json file
+  isSilent: true, // set to true to display logs
+  storage: path.resolve(__dirname, storagePath) // specify path to the storage (*.json file)
 });
 
-// Define task. Note that You can delete task using delete method of TaskManager instance
+// Define task. Note that You can delete task using "deleteTask" method of TaskManager instance
 
 taskManager.addTask('foo', (...params) => {
   return new Promise((resolve, reject) => {
@@ -37,12 +37,14 @@ taskManager.addTask('bar', (...params) => {
     }, Math.round(Math.random() * 1000));
   })});
 
-// Start task manager. Note, that You can to stop it using stop method of TaskManager instance
+// Start task manager. Note, that You can to stop it in any time using "stop" method of TaskManager instance
 
 taskManager.start();
 
 for ( let i =0; i < 5; i++ ) {
-  taskManager.enqueueJob(i%2 ? 'bar' : 'foo', {
+  taskManager.enqueueJob(
+    i%2 ? 'bar' : 'foo', 
+{
     params: [i], //  any[], params will be passed to handler
     options: {
       attempts: 3, // max unsuccessful execution attempts count
