@@ -82,6 +82,10 @@ export class QueueHandler {
             console.log(JSON.stringify({ job: job, executed: true }, null, 2));
           }
         } catch (e) {
+          if ( !this.isSilent ) {
+            console.log(messages.unsuccessfullyExecuted(this.name));
+            console.log(e.messages);
+          }
           this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
           if ( hasAttempts ) {
