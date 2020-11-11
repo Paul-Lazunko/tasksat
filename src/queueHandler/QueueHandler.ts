@@ -76,7 +76,7 @@ export class QueueHandler {
       if ( job ) {
         const { params } = job;
         try {
-          await this.handler(params);
+          await this.handler(...params);
           if ( !this.isSilent ) {
             console.log(messages.successfullyExecuted(this.name));
             console.log(JSON.stringify({ job: job, executed: true }, null, 2));
