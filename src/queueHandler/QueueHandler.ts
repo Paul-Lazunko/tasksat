@@ -98,10 +98,10 @@ export class QueueHandler {
           }
         }
       }
-     setTimeout(() => {
+     setImmediate(() => {
        this._store();
        this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME)
-     }, 0)
+     })
     }
   }
 
