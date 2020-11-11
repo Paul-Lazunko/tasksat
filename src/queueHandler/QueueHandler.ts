@@ -82,11 +82,11 @@ export class QueueHandler {
             console.log(JSON.stringify({ job: job, executed: true }, null, 2));
           }
         } catch (e) {
+          this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
           if ( hasAttempts ) {
             const isNotExpired: boolean = this.checkJobTtlValue(job);
             if ( isNotExpired ) {
-              this.decrementJobExecutionAttemptsCount(job);
               this.enqueue(job);
             } else if ( !this.isSilent) {
               console.log(messages.ttlExceeded(this.name));
