@@ -34,6 +34,7 @@ export class QueueHandler {
     this.eventEmitter.on(QUEUE_HANDLER_PROCESS_EVENT_NAME, this.process.bind(this));
     this.eventEmitter.on(QUEUE_HANDLER_STORE_EVENT_NAME, this.process.bind(this));
     QueueHandler.instances.set(this.name, this);
+    this._restore();
   }
 
   public static start() {
@@ -72,6 +73,13 @@ export class QueueHandler {
 
   private _store() {
     this.store.set(this.name, this.queue);
+  }
+
+  private _restore() {
+    const queue: IJob[] = this.store.get(this.name);
+    if ( Array.isArray(queue) && queue.length ) {
+      queue.forEach((job: IJob) => this.enqueue(job))
+    }
   }
 
   public async process(): Promise<void> {
