@@ -1,6 +1,6 @@
 import { ITaskManagerOptions } from '../options';
 import { QueueHandler } from '../queueHandler';
-import { IJob } from '../structures';
+import { IJob, ILogger } from '../structures';
 const StoreConstructor = require('data-store');
 
 
@@ -10,14 +10,17 @@ export class TaskManager {
 
   private store: any;
   private isSilent: boolean;
+  private logger: ILogger;
   private queueHandlers: Map<string, QueueHandler>;
-
+  private errorCallbacks: Map<string, (...args: any[]) => void>
 
   private constructor(options: ITaskManagerOptions) {
     const {
       storage,
-      isSilent
+      isSilent,
+      logger
     } = options;
+    this.logger = logger;
     this.isSilent = isSilent;
     this.store = StoreConstructor({ path: storage });
     this.queueHandlers = new Map<string, QueueHandler>();
@@ -30,14 +33,15 @@ export class TaskManager {
     return TaskManager.instance;
   }
 
-  public addTask(name: string, handler: (...args: any[]) => void) {
+  public addTask(name: string, handler: (...args: any[]) => void, errorCallback: (...args: any[]) => void) {
     if ( typeof name !== 'string' ) {
       throw new Error(`The name parameter should be a string`)
-
     }
     if ( typeof handler !== 'function' ) {
       throw new Error(`The handler parameter should be a function`)
-
+    }
+    if ( errorCallback && typeof errorCallback !== 'function' ) {
+      throw new Error(`The handler parameter should be a function`)
     }
     if ( this.queueHandlers.has(name) ) {
       throw new Error(`Task ${name} exists already`)
@@ -45,9 +49,11 @@ export class TaskManager {
     this.queueHandlers.set(name, new QueueHandler({
       name,
       handler,
+      errorCallback: errorCallback ? errorCallback : () => {},
       oldQueue: this.store.get(name) || [],
       store: this.store,
-      isSilent: this.isSilent
+      isSilent: this.isSilent,
+      logger: this.logger
     }));
   }
 

@@ -1,10 +1,12 @@
 import { TTaskParams } from '../constants';
-import { IJob } from '../structures';
+import { IJob, ILogger } from '../structures';
 
 export interface IQueueHandlerOptions {
   oldQueue?: IJob[],
   store: any
   name: string
   isSilent: boolean
-  handler: (...args: TTaskParams) => void
+  handler: (...args: TTaskParams) => void,
+  errorCallback: (...args: TTaskParams) => void,
+  logger: ILogger
 }

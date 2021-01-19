@@ -6,7 +6,7 @@ import {
   TTaskParams
 } from '../constants';
 import { IQueueHandlerOptions } from '../options';
-import { IJob } from '../structures';
+import { IJob, ILogger } from '../structures';
 
 export class QueueHandler {
 
@@ -15,7 +15,9 @@ export class QueueHandler {
 
   private readonly name: string;
   private readonly isSilent: boolean;
+  private readonly logger: ILogger;
   private readonly handler: (...args: TTaskParams) => void;
+  private readonly errorCallback: (...args: TTaskParams) => void;
   private store: any;
   private queue: IJob[];
   private eventEmitter: EventEmitter;
@@ -23,6 +25,8 @@ export class QueueHandler {
   constructor(options: IQueueHandlerOptions) {
     this.queue = options.oldQueue || [];
     this.handler = options.handler;
+    this.logger = options.logger || console;
+    this.errorCallback = options.errorCallback;
     this.isSilent = options.isSilent;
     this.store = options.store;
     this.name = options.name;
@@ -61,8 +65,8 @@ export class QueueHandler {
   public enqueue(job: IJob) {
     this.queue.push(job);
     if ( !this.isSilent) {
-      console.log(messages.enqueued(this.name));
-      console.log(JSON.stringify({ job, enqueued: true }, null, 2))
+      this.logger.log(messages.enqueued(this.name));
+      this.logger.log(JSON.stringify({ job, enqueued: true }, null, 2))
     }
   }
 
@@ -78,13 +82,23 @@ export class QueueHandler {
         try {
           await this.handler(...params);
           if ( !this.isSilent ) {
-            console.log(messages.successfullyExecuted(this.name));
-            console.log(JSON.stringify({ job: job, executed: true }, null, 2));
+            this.logger.log(messages.successfullyExecuted(this.name));
+            this.logger.log(JSON.stringify({ job, executed: true }, null, 2));
           }
         } catch (e) {
           if ( !this.isSilent ) {
-            console.log(messages.unsuccessfullyExecuted(this.name));
-            console.log(e.messages);
+            this.logger.log(messages.unsuccessfullyExecuted(this.name));
+            this.logger.log(e.messages);
+          }
+          if ( this.errorCallback ) {
+            try {
+              await this.errorCallback(...params);
+            } catch(e) {
+              if ( !this.isSilent ) {
+                this.logger.log(messages.unsuccessfullyExecutedErrorCallback(this.name));
+                this.logger.log(e.messages);
+              }
+            }
           }
           this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
@@ -93,12 +107,12 @@ export class QueueHandler {
             if ( isNotExpired ) {
               this.enqueue(job);
             } else if ( !this.isSilent) {
-              console.log(messages.ttlExceeded(this.name));
-              console.log(JSON.stringify({ job: job, executed: false }, null, 2));
+              this.logger.log(messages.ttlExceeded(this.name));
+              this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
             }
           } else if ( !this.isSilent) {
-            console.log(messages.attemptsCountExceeded(this.name));
-            console.log(JSON.stringify({ job: job, executed: false }, null, 2));
+            this.logger.log(messages.attemptsCountExceeded(this.name));
+            this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
           }
         }
       }
