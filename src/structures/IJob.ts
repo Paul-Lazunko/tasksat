@@ -2,7 +2,10 @@ import { TTaskParams } from '../constants';
 import { IJobOptions } from '../options';
 
 export interface IJob {
-  name?: string,
+  taskName: string,
   options: IJobOptions
   params: any[],
+  successCallback?: (...args: TTaskParams) => void,
+  errorCallback?: (...args: TTaskParams) => void,
+  runSuccessCallbackWithHandlerResult?: boolean,
 }

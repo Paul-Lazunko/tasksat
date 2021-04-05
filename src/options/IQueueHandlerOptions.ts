@@ -7,6 +7,5 @@ export interface IQueueHandlerOptions {
   name: string
   isSilent: boolean
   handler: (...args: TTaskParams) => void,
-  errorCallback: (...args: TTaskParams) => void,
   logger: ILogger
 }

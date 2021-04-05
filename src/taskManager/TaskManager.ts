@@ -3,7 +3,6 @@ import { QueueHandler } from '../queueHandler';
 import { IJob, ILogger } from '../structures';
 const StoreConstructor = require('data-store');
 
-
 export class TaskManager {
 
   private static instance: TaskManager;
@@ -33,14 +32,11 @@ export class TaskManager {
     return TaskManager.instance;
   }
 
-  public addTask(name: string, handler: (...args: any[]) => void, errorCallback: (...args: any[]) => void) {
+  public addTask(name: string, handler: (...args: any[]) => void) {
     if ( typeof name !== 'string' ) {
       throw new Error(`The name parameter should be a string`)
     }
     if ( typeof handler !== 'function' ) {
-      throw new Error(`The handler parameter should be a function`)
-    }
-    if ( errorCallback && typeof errorCallback !== 'function' ) {
       throw new Error(`The handler parameter should be a function`)
     }
     if ( this.queueHandlers.has(name) ) {
@@ -49,7 +45,6 @@ export class TaskManager {
     this.queueHandlers.set(name, new QueueHandler({
       name,
       handler,
-      errorCallback: errorCallback ? errorCallback : () => {},
       oldQueue: this.store.get(name) || [],
       store: this.store,
       isSilent: this.isSilent,
@@ -57,23 +52,31 @@ export class TaskManager {
     }));
   }
 
-  public deleteTask(name: string, clearStorage?: boolean): void {
+  public deleteTask(name: string): void {
     if ( !this.queueHandlers.has(name) ) {
       throw new Error(`Task ${name} doesn't exist`)
     }
     this.queueHandlers.delete(name);
+    this.store.delete(name);
     QueueHandler.deleteInstance(name);
-   if ( clearStorage ) {
-     this.store.delete(name);
-   }
   }
 
-  public enqueueJob(name: string, job: IJob) {
-    if ( job.options ) {
-      if ( typeof job.options !== 'object' ) {
+  public enqueueJob(job: IJob) {
+    const {
+      taskName,
+      options,
+      successCallback,
+      errorCallback,
+      runSuccessCallbackWithHandlerResult
+    } = job;
+    if ( !this.queueHandlers.has(taskName) ) {
+      throw new Error(`Task '${taskName}' was not specified`);
+    }
+    if ( options ) {
+      if ( typeof options !== 'object' ) {
         throw new Error(`Options should be an object`);
       }
-      const { ttl, attempts } = job.options;
+      const { ttl, attempts } = options;
       if ( !ttl || typeof ttl !== 'number' || ttl < 0 ) {
         throw new Error(`ttl should be positive integer`)
       }
@@ -83,11 +86,17 @@ export class TaskManager {
     } else {
       job.options = {};
     }
-    job.name = name;
+    if ( successCallback && typeof successCallback !== 'function' ) {
+      throw new Error(`The 'successCallback' parameter should be a function`)
+    }
+    if ( errorCallback && typeof errorCallback !== 'function' ) {
+      throw new Error(`The 'errorCallback' parameter should be a function`)
+    }
+    if ( typeof runSuccessCallbackWithHandlerResult !== 'boolean' ) {
+      job.runSuccessCallbackWithHandlerResult = Boolean(runSuccessCallbackWithHandlerResult)
+    }
     job.options.enqueuedAt = new Date().getTime();
-
-    this.queueHandlers.get(name).enqueue(job);
-
+    this.queueHandlers.get(taskName).enqueue(job);
   }
 
   public start() {

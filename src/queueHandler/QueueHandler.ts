@@ -17,7 +17,6 @@ export class QueueHandler {
   private readonly isSilent: boolean;
   private readonly logger: ILogger;
   private readonly handler: (...args: TTaskParams) => void;
-  private readonly errorCallback: (...args: TTaskParams) => void;
   private store: any;
   private queue: IJob[];
   private eventEmitter: EventEmitter;
@@ -26,7 +25,6 @@ export class QueueHandler {
     this.queue = options.oldQueue || [];
     this.handler = options.handler;
     this.logger = options.logger || console;
-    this.errorCallback = options.errorCallback;
     this.isSilent = options.isSilent;
     this.store = options.store;
     this.name = options.name;
@@ -88,25 +86,16 @@ export class QueueHandler {
       if ( job ) {
         const { params } = job;
         try {
-          await this.handler(...params);
+          const result: any = await this.handler(...params);
           if ( !this.isSilent ) {
             this.logger.log(messages.successfullyExecuted(this.name));
             this.logger.log(JSON.stringify({ job, executed: true }, null, 2));
           }
+          job.runSuccessCallbackWithHandlerResult ? await this.executeSuccessCallback(job, result) : await this.executeSuccessCallback(job, ...params)
         } catch (e) {
           if ( !this.isSilent ) {
             this.logger.log(messages.unsuccessfullyExecuted(this.name));
             this.logger.log(e.messages);
-          }
-          if ( this.errorCallback ) {
-            try {
-              await this.errorCallback(...params);
-            } catch(e) {
-              if ( !this.isSilent ) {
-                this.logger.log(messages.unsuccessfullyExecutedErrorCallback(this.name));
-                this.logger.log(e.messages);
-              }
-            }
           }
           this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
@@ -114,13 +103,19 @@ export class QueueHandler {
             const isNotExpired: boolean = this.checkJobTtlValue(job);
             if ( isNotExpired ) {
               this.enqueue(job);
-            } else if ( !this.isSilent) {
-              this.logger.log(messages.ttlExceeded(this.name));
+            } else  {
+              if ( !this.isSilent) {
+                this.logger.log(messages.ttlExceeded(this.name));
+                this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
+              }
+              await this.executeErrorCallback(job, ...params)
+            }
+          } else  {
+            if ( !this.isSilent) {
+              this.logger.log(messages.attemptsCountExceeded(this.name));
               this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
             }
-          } else if ( !this.isSilent) {
-            this.logger.log(messages.attemptsCountExceeded(this.name));
-            this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
+            await this.executeErrorCallback(job, ...params)
           }
         }
       }
@@ -128,6 +123,32 @@ export class QueueHandler {
        this._store();
        this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME)
      })
+    }
+  }
+
+  private async executeErrorCallback(job: IJob, ...params: any[]): Promise<void> {
+    if ( job.errorCallback ) {
+      try {
+        await job.errorCallback(...params);
+      } catch(e) {
+        if ( !this.isSilent ) {
+          this.logger.log(messages.unsuccessfullyExecutedErrorCallback(this.name));
+          this.logger.log(e.messages);
+        }
+      }
+    }
+  }
+
+  private async executeSuccessCallback(job: IJob, ...params: any[]): Promise<void> {
+    if ( job.successCallback ) {
+      try {
+        await job.successCallback(...params);
+      } catch(e) {
+        if ( !this.isSilent ) {
+          this.logger.log(messages.unsuccessfullyExecutedSuccessCallback(this.name));
+          this.logger.log(e.messages);
+        }
+      }
     }
   }
 
@@ -140,7 +161,7 @@ export class QueueHandler {
   private decrementJobExecutionAttemptsCount(job: IJob): void {
     const { options } = job;
     const { attempts } = options;
-    job.options.attempts = attempts - 1;
+    job.options.attempts = attempts > 0 ? attempts - 1 : 0;
   }
 
   private checkJobTtlValue(job: IJob): boolean {
