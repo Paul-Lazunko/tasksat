@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events';
 import {
   QUEUE_HANDLER_PROCESS_EVENT_NAME,
-  QUEUE_HANDLER_STORE_EVENT_NAME,
   messages,
   TTaskParams
 } from '../constants';
@@ -17,22 +16,18 @@ export class QueueHandler {
   private readonly isSilent: boolean;
   private readonly logger: ILogger;
   private readonly handler: (...args: TTaskParams) => void;
-  private store: any;
   private queue: IJob[];
   private eventEmitter: EventEmitter;
 
   constructor(options: IQueueHandlerOptions) {
-    this.queue = options.oldQueue || [];
+    this.queue = [];
     this.handler = options.handler;
     this.logger = options.logger || console;
     this.isSilent = options.isSilent;
-    this.store = options.store;
     this.name = options.name;
     this.eventEmitter = new EventEmitter();
     this.eventEmitter.on(QUEUE_HANDLER_PROCESS_EVENT_NAME, this.process.bind(this));
-    this.eventEmitter.on(QUEUE_HANDLER_STORE_EVENT_NAME, this.process.bind(this));
     QueueHandler.instances.set(this.name, this);
-    this._restore();
   }
 
   public static start() {
@@ -57,8 +52,6 @@ export class QueueHandler {
 
   public stop() {
     this.eventEmitter.removeAllListeners(QUEUE_HANDLER_PROCESS_EVENT_NAME);
-    this.eventEmitter.removeAllListeners(QUEUE_HANDLER_STORE_EVENT_NAME);
-    this.store.delete(this.name);
   }
 
   public enqueue(job: IJob) {
@@ -66,17 +59,6 @@ export class QueueHandler {
     if ( !this.isSilent) {
       this.logger.log(messages.enqueued(this.name));
       this.logger.log(JSON.stringify({ job, enqueued: true }, null, 2))
-    }
-  }
-
-  private _store() {
-    this.store.set(this.name, this.queue);
-  }
-
-  private _restore() {
-    const queue: IJob[] = this.store.get(this.name);
-    if ( Array.isArray(queue) && queue.length ) {
-      queue.forEach((job: IJob) => this.enqueue(job))
     }
   }
 
@@ -119,10 +101,9 @@ export class QueueHandler {
           }
         }
       }
-     setImmediate(() => {
-       this._store();
+     setTimeout(() => {
        this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME)
-     })
+     }, 0)
     }
   }
 

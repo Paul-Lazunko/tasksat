@@ -1,13 +1,11 @@
 import { ITaskManagerOptions } from '../options';
 import { QueueHandler } from '../queueHandler';
 import { IJob, ILogger } from '../structures';
-const StoreConstructor = require('data-store');
 
 export class TaskManager {
 
   private static instance: TaskManager;
 
-  private store: any;
   private isSilent: boolean;
   private logger: ILogger;
   private queueHandlers: Map<string, QueueHandler>;
@@ -15,13 +13,11 @@ export class TaskManager {
 
   private constructor(options: ITaskManagerOptions) {
     const {
-      storage,
       isSilent,
       logger
     } = options;
     this.logger = logger;
     this.isSilent = isSilent;
-    this.store = StoreConstructor({ path: storage });
     this.queueHandlers = new Map<string, QueueHandler>();
   }
 
@@ -45,8 +41,6 @@ export class TaskManager {
     this.queueHandlers.set(name, new QueueHandler({
       name,
       handler,
-      oldQueue: this.store.get(name) || [],
-      store: this.store,
       isSilent: this.isSilent,
       logger: this.logger
     }));
@@ -57,7 +51,6 @@ export class TaskManager {
       throw new Error(`Task ${name} doesn't exist`)
     }
     this.queueHandlers.delete(name);
-    this.store.delete(name);
     QueueHandler.deleteInstance(name);
   }
 
