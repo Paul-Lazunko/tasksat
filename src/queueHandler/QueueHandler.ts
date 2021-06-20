@@ -9,7 +9,7 @@ import { IJob, ILogger } from '../structures';
 
 export class QueueHandler {
 
-  private static isStarted: boolean = false;
+  public static isStarted: boolean = false;
   private static instances: Map<string, QueueHandler> = new Map<string, QueueHandler>();
 
   private readonly name: string;

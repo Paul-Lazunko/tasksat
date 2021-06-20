@@ -6,8 +6,8 @@ export class TaskManager {
 
   private static instance: TaskManager;
 
-  private isSilent: boolean;
-  private logger: ILogger;
+  private readonly isSilent: boolean;
+  private readonly logger: ILogger;
   private queueHandlers: Map<string, QueueHandler>;
   private errorCallbacks: Map<string, (...args: any[]) => void>
 
@@ -35,21 +35,22 @@ export class TaskManager {
     if ( typeof handler !== 'function' ) {
       throw new Error(`The handler parameter should be a function`)
     }
-    if ( this.queueHandlers.has(name) ) {
-      throw new Error(`Task ${name} exists already`)
-    }
     this.queueHandlers.set(name, new QueueHandler({
       name,
       handler,
       isSilent: this.isSilent,
       logger: this.logger
     }));
+    if ( QueueHandler.isStarted ) {
+      this.queueHandlers.get(name).start();
+    }
   }
 
   public deleteTask(name: string): void {
     if ( !this.queueHandlers.has(name) ) {
       throw new Error(`Task ${name} doesn't exist`)
     }
+    this.queueHandlers.get(name).stop();
     this.queueHandlers.delete(name);
     QueueHandler.deleteInstance(name);
   }
