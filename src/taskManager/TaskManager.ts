@@ -47,12 +47,11 @@ export class TaskManager {
   }
 
   public deleteTask(name: string): void {
-    if ( !this.queueHandlers.has(name) ) {
-      throw new Error(`Task ${name} doesn't exist`)
+    if ( this.queueHandlers.has(name) ) {
+      this.queueHandlers.get(name).stop();
+      this.queueHandlers.delete(name);
+      QueueHandler.deleteInstance(name);
     }
-    this.queueHandlers.get(name).stop();
-    this.queueHandlers.delete(name);
-    QueueHandler.deleteInstance(name);
   }
 
   public enqueueJob(job: IJob) {

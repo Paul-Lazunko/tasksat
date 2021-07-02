@@ -1,6 +1,6 @@
 {
   "name": "tasksat",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "author": "Paul Lazunko",
   "description": "Task Manager for Node.js application",
   "keywords": [
