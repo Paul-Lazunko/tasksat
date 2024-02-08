@@ -14,7 +14,7 @@ export class QueueHandler {
   private readonly name: string;
   private readonly isSilent: boolean;
   private readonly logger: ILogger;
-  private readonly handler: (...args: TTaskParams) => void;
+  private readonly handler: (...args: TTaskParams) => any;
   private queue: IJob[];
   private options: IPseudoIntervalOptions;
 
@@ -80,8 +80,8 @@ export class QueueHandler {
            return this.enqueue(job);
          }
         }
-        job.options.lastProcessedAt = new Date().getTime();
         try {
+          job.options.lastProcessedAt = new Date().getTime();
           const result: any = await this.handler(...params);
           if ( !this.isSilent ) {
             this.logger.log(messages.successfullyExecuted(this.name));
