@@ -1,11 +1,10 @@
-import { EventEmitter } from 'events';
 import {
-  QUEUE_HANDLER_PROCESS_EVENT_NAME,
   messages,
   TTaskParams
 } from '../constants';
-import { IQueueHandlerOptions } from '../options';
+import { IPseudoIntervalOptions, IQueueHandlerOptions } from '../options';
 import { IJob, ILogger } from '../structures';
+import { pseudoInterval } from '../helpers';
 
 export class QueueHandler {
 
@@ -17,7 +16,7 @@ export class QueueHandler {
   private readonly logger: ILogger;
   private readonly handler: (...args: TTaskParams) => void;
   private queue: IJob[];
-  private eventEmitter: EventEmitter;
+  private options: IPseudoIntervalOptions;
 
   constructor(options: IQueueHandlerOptions) {
     this.queue = [];
@@ -25,9 +24,14 @@ export class QueueHandler {
     this.logger = options.logger || console;
     this.isSilent = options.isSilent;
     this.name = options.name;
-    this.eventEmitter = new EventEmitter();
-    this.eventEmitter.on(QUEUE_HANDLER_PROCESS_EVENT_NAME, this.process.bind(this));
+    this.options = {
+      isActive: false,
+      forceExit: false,
+      interval: 0,
+      handler: this.process.bind(this)
+    }
     QueueHandler.instances.set(this.name, this);
+    pseudoInterval(this.options);
   }
 
   public static start() {
@@ -37,6 +41,7 @@ export class QueueHandler {
 
   public static stop() {
     QueueHandler.isStarted = false;
+    QueueHandler.instances.forEach((queueHandler: QueueHandler) => queueHandler.stop())
   }
 
   public static deleteInstance(name: string) {
@@ -47,11 +52,12 @@ export class QueueHandler {
   }
 
   public start() {
-    this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME);
+    this.options.isActive = true;
   }
 
   public stop() {
-    this.eventEmitter.removeAllListeners(QUEUE_HANDLER_PROCESS_EVENT_NAME);
+    this.options.isActive = false;
+    this.options.forceExit = true;
   }
 
   public enqueue(job: IJob) {
@@ -66,7 +72,15 @@ export class QueueHandler {
     if ( QueueHandler.isStarted ) {
      const job: IJob = this.queue.shift();
       if ( job ) {
-        const { params } = job;
+        const { params, options } = job;
+        const now = new Date().getTime();
+        if (options.timeoutBetweenAttempts) {
+         if ( now < (options.lastProcessedAt||0) + options.timeoutBetweenAttempts ) {
+           job.options.lastProcessedAt = job.options.lastProcessedAt  || new Date().getTime();
+           return this.enqueue(job);
+         }
+        }
+        job.options.lastProcessedAt = new Date().getTime();
         try {
           const result: any = await this.handler(...params);
           if ( !this.isSilent ) {
@@ -77,8 +91,9 @@ export class QueueHandler {
         } catch (e) {
           if ( !this.isSilent ) {
             this.logger.log(messages.unsuccessfullyExecuted(this.name));
-            this.logger.log(e.messages);
+            this.logger.error(e);
           }
+
           this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
           if ( hasAttempts ) {
@@ -90,27 +105,24 @@ export class QueueHandler {
                 this.logger.log(messages.ttlExceeded(this.name));
                 this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
               }
-              await this.executeErrorCallback(job, ...params)
+              await this.executeErrorCallback(job)
             }
           } else  {
             if ( !this.isSilent) {
               this.logger.log(messages.attemptsCountExceeded(this.name));
               this.logger.log(JSON.stringify({ job, executed: false }, null, 2));
             }
-            await this.executeErrorCallback(job, ...params)
+            await this.executeErrorCallback(job)
           }
         }
       }
-     setTimeout(() => {
-       this.eventEmitter.emit(QUEUE_HANDLER_PROCESS_EVENT_NAME)
-     }, 0)
     }
   }
 
-  private async executeErrorCallback(job: IJob, ...params: any[]): Promise<void> {
+  private async executeErrorCallback(job: IJob): Promise<void> {
     if ( job.errorCallback ) {
       try {
-        await job.errorCallback(...params);
+        await job.errorCallback(...(job.params||[]));
       } catch(e) {
         if ( !this.isSilent ) {
           this.logger.log(messages.unsuccessfullyExecutedErrorCallback(this.name));

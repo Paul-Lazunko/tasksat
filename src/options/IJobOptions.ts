@@ -1,5 +1,7 @@
 export interface IJobOptions {
-  ttl?: number,
-  attempts?: number
-  enqueuedAt?: number
+  ttl?: number;
+  attempts?: number;
+  timeoutBetweenAttempts?: number;
+  enqueuedAt?: number;
+  lastProcessedAt?: number;
 }

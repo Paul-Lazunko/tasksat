@@ -15,7 +15,6 @@ const storagePath = `./data/queues.json`;
 
 const taskManager = TaskManager.getInstance({
   isSilent: true, // set to true to display logs
-  storage: path.resolve(__dirname, storagePath), // specify path to the storage (*.json file)
   logger: console // console is used by default, and you can use any logger
 });
 
@@ -47,6 +46,7 @@ taskManager.enqueueJob(
     params: 1, //  any[], these params will be passed to handler
     options: {
       attempts: 3, // max unsuccessful execution attempts count
+      timeoutBetweenAttempts: 1000, // in ms
       ttl: 10000 // max age of the job in ms
     },
     // specify optional successCallback, it will be executed immediately after successful job execution
