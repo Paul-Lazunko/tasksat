@@ -21,6 +21,10 @@ export class TaskManager {
     this.queueHandlers = new Map<string, QueueHandler>();
   }
 
+  protected get defaultOptions() {
+    return { ttl: 0, attempts: 1, enqueuedAt: new Date().getTime() };
+  }
+
   public static getInstance(options: ITaskManagerOptions): TaskManager {
     if ( !TaskManager.instance ) {
       TaskManager.instance = new TaskManager(options);
@@ -58,6 +62,7 @@ export class TaskManager {
     const {
       taskName,
       options,
+      params,
       successCallback,
       errorCallback,
       runSuccessCallbackWithHandlerResult
@@ -65,19 +70,25 @@ export class TaskManager {
     if ( !this.queueHandlers.has(taskName) ) {
       throw new Error(`Task '${taskName}' was not specified`);
     }
+    if (!Array.isArray(params)) {
+      job.params = [job.params];
+    }
     if ( options ) {
       if ( typeof options !== 'object' ) {
-        throw new Error(`Options should be an object`);
+        job.options = this.defaultOptions;
+        // throw new Error(`Options should be an object`);
       }
       const { ttl, attempts } = options;
       if ( !ttl || typeof ttl !== 'number' || ttl < 0 ) {
-        throw new Error(`ttl should be positive integer`)
+        job.options.ttl = 0;
+        // throw new Error(`ttl should be positive integer`)
       }
       if ( !attempts || typeof attempts !== 'number' || ttl < 0 ) {
-        throw new Error(`attempts should be positive integer`)
+        job.options.attempts = 1;
+        // throw new Error(`attempts should be positive integer`)
       }
     } else {
-      job.options = {};
+      job.options = this.defaultOptions;
     }
     if ( successCallback && typeof successCallback !== 'function' ) {
       throw new Error(`The 'successCallback' parameter should be a function`)

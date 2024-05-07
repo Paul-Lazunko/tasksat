@@ -21,7 +21,7 @@ export class QueueHandler {
   constructor(options: IQueueHandlerOptions) {
     this.queue = [];
     this.handler = options.handler;
-    this.logger = options.logger || console;
+    this.logger = options.logger || console as ILogger;
     this.isSilent = options.isSilent;
     this.name = options.name;
     this.options = {
@@ -81,7 +81,6 @@ export class QueueHandler {
          }
         }
         try {
-          job.options.lastProcessedAt = new Date().getTime();
           const result: any = await this.handler(...params);
           if ( !this.isSilent ) {
             this.logger.log(messages.successfullyExecuted(this.name));
@@ -93,7 +92,7 @@ export class QueueHandler {
             this.logger.log(messages.unsuccessfullyExecuted(this.name));
             this.logger.error(e);
           }
-
+          job.options.lastProcessedAt = new Date().getTime();
           this.decrementJobExecutionAttemptsCount(job);
           const hasAttempts: boolean = this.checkJobExecutionAttemptsCount(job);
           if ( hasAttempts ) {
@@ -126,7 +125,7 @@ export class QueueHandler {
       } catch(e) {
         if ( !this.isSilent ) {
           this.logger.log(messages.unsuccessfullyExecutedErrorCallback(this.name));
-          this.logger.log(e.messages);
+          this.logger.log(e.message);
         }
       }
     }
@@ -139,7 +138,7 @@ export class QueueHandler {
       } catch(e) {
         if ( !this.isSilent ) {
           this.logger.log(messages.unsuccessfullyExecutedSuccessCallback(this.name));
-          this.logger.log(e.messages);
+          this.logger.log(e.message);
         }
       }
     }
@@ -152,16 +151,15 @@ export class QueueHandler {
   }
 
   private decrementJobExecutionAttemptsCount(job: IJob): void {
-    const { options } = job;
-    const { attempts } = options;
-    job.options.attempts = attempts > 0 ? attempts - 1 : 0;
+    job.options.attempts = (job.options.attempts||0) > 0 ? job.options.attempts - 1 : 0;
   }
 
   private checkJobTtlValue(job: IJob): boolean {
+    job.options = job.options || { attempts: 0, enqueuedAt: new Date().getTime() };
     const { options } = job;
     const { enqueuedAt, ttl } = options;
-    const timestamp: number = new Date().getTime();
     if ( ttl ) {
+      const timestamp: number = new Date().getTime();
       return enqueuedAt + ttl > timestamp;
     }
     return true;

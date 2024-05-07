@@ -6,7 +6,6 @@
 
 ```ecmascript 6
 
-const path = require('path');
 const { TaskManager } = require("tasksat");
 
 const storagePath = `./data/queues.json`;
@@ -43,7 +42,7 @@ taskManager.start();
 taskManager.enqueueJob(
   {
     taskName: 'foo', // Specify task that should be executed
-    params: 1, //  any[], these params will be passed to handler
+    params: [1], //  any[], these params will be passed to handler
     options: {
       attempts: 3, // max unsuccessful execution attempts count
       timeoutBetweenAttempts: 1000, // in ms

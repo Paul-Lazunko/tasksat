@@ -3,7 +3,7 @@ import { IJobOptions } from '../options';
 
 export interface IJob {
   taskName: string,
-  options: IJobOptions
+  options?: IJobOptions
   params: any[],
   successCallback?: (...args: TTaskParams) => void,
   errorCallback?: (...args: TTaskParams) => void,
